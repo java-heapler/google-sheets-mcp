@@ -149,3 +149,16 @@ def test_transport_never_replays_post(response_status):
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+def test_real_discovery_uses_no_replay_transport(monkeypatch,tmp_path):
+    from google.auth.credentials import AnonymousCredentials
+    p=tmp_path/'token.json'; p.write_text('{}'); p.chmod(0o600)
+    monkeypatch.setattr(auth.Credentials,'from_authorized_user_file',MagicMock(return_value=AnonymousCredentials()))
+    service=auth.build_service()
+    try:
+        assert isinstance(service._http.http,auth._NoReplayHttp)
+        request=service.spreadsheets().values().append(spreadsheetId='abc',range='A1',body={'values':[[1]]},valueInputOption='RAW',insertDataOption='INSERT_ROWS')
+        assert request.method=='POST'
+        assert request.uri.startswith('https://sheets.googleapis.com/v4/spreadsheets/abc/')
+    finally:
+        service.close()
