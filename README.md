@@ -15,7 +15,7 @@ uv tool install .
 google-sheets doctor
 ```
 
-`doctor` reports local credential configuration; it is not a live access check. No usable credentials were available during initial setup, so Google authorization and live API verification remain outstanding.
+`doctor` reports local credential configuration; it is not a live access check. For installation history, Cloud permissions, OAuth setup, troubleshooting, and release steps, see [the setup runbook](docs/SETUP.md). Authentication and live reads were verified in the original installation; each new installation must establish its own access.
 
 ## Authenticate once
 
@@ -52,6 +52,10 @@ Every mutation defaults to a local `status: preview` response without credential
 `write` replaces cells in a range, `append` inserts rows after the detected table (`INSERT_ROWS`), `clear` removes cell values, and `create TITLE` creates a spreadsheet. Each takes `--confirm` to execute. `info --range` may be repeated; add `--include-grid-data` to inspect cell metadata such as formatting and validation, keeping ranges bounded. `read --render` accepts `FORMATTED_VALUE` (default), `UNFORMATTED_VALUE`, or `FORMULA`.
 
 `write` and `append` default to `--input-option RAW`: strings such as `=SUM(A1:A3)` remain literal text. Explicit `--input-option USER_ENTERED` allows Google to interpret formulas, dates, and numbers as if typed into Sheets; interpretation can depend on spreadsheet locale. Only choose it intentionally for reviewed data. `--render FORMULA` reads formula text; it does not change input behavior. See [ValueInputOption](https://developers.google.com/workspace/sheets/api/reference/rest/v4/ValueInputOption).
+
+## Update records by their headers
+
+Use `table plan` to read a bounded table and prepare a header-based match/update, then `table apply --plan-file PLAN.json` to preview locally and add `--confirm` to execute. Matching is unique and type-aware; ambiguous records and stale snapshots are rejected. Optional append can copy a template row’s formatting and validation. This works with arbitrary headers rather than a fixed interview schema. See [general table workflows](docs/table-workflows.md) for rescheduling, inventory, append, and preservation examples, plus the non-atomic concurrency limits.
 
 ## Tabs, formatting, and validation
 
@@ -111,7 +115,7 @@ Install the CLI first, then add a stdio server entry to your MCP host's configur
 }
 ```
 
-Tools: `sheets_info`, `sheets_read`, `sheets_create`, `sheets_write`, `sheets_append`, `sheets_clear`, `sheets_batch`, `sheets_tabs_add`, `sheets_tabs_rename`, and `sheets_tabs_delete`. Mutating tools have `confirm: false` by default and expose mutation annotations. Transport messages use stdout; operational diagnostics must not pollute it. Authentication is configured separately through the CLI. `google-sheets agent schema` outputs the MCP tool schemas as JSON; `google-sheets agent guide` prints operational guidance for agent integration.
+Tools: `sheets_info`, `sheets_read`, `sheets_create`, `sheets_write`, `sheets_append`, `sheets_clear`, `sheets_batch`, `sheets_tabs_add`, `sheets_tabs_rename`, `sheets_tabs_delete`, `sheets_table_plan`, and `sheets_table_apply`. Mutating tools have `confirm: false` by default and expose mutation annotations. Transport messages use stdout; operational diagnostics must not pollute it. Authentication is configured separately through the CLI. `google-sheets agent schema` outputs the MCP tool schemas as JSON; `google-sheets agent guide` prints operational guidance for agent integration.
 
 ## Verification and limits
 
@@ -122,6 +126,8 @@ uv build
 ```
 
 Tests use injected fake Google services and a real MCP stdio subprocess. The coverage gate requires 100% line and branch coverage for package code; subprocess-only execution is separately exercised and is not a reason to exclude code from coverage. Automated tests do not use live credentials or modify spreadsheets.
+
+Live tests on a newly created synthetic workbook verified create and tab operations, literal RAW strings, explicit formula calculation, targeted update preservation of text/formulas/notes/format/validation, append, clear, and removal of a test tab. Ten additional live table scenarios verified rescheduling and preservation, template append, inventory edits, stale/mismatched/tampered/ambiguous plan rejection, literal-string/null behavior, native date serial updates preserving date formatting and dependent formulas, and escaped apostrophes in tab titles. All seventeen scenario groups passed; the existing interview tracker was not modified. See the [sanitized live verification record](docs/SETUP.md#recorded-live-verification-october-2026). These results are separate from the automated coverage gate.
 
 After authentication, run `info` and `read` on an explicitly authorized spreadsheet to verify live access. Live write verification requires authorization for a disposable spreadsheet and must verify the resulting values and metadata. Do not test mutations against the interview tracker or other existing data without explicit scope.
 

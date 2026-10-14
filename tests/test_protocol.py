@@ -13,6 +13,7 @@ from mcp.client.stdio import stdio_client
 import pytest
 
 from google_sheets_mcp.client import SheetsClient
+from google_sheets_mcp.tables import plan_table
 
 
 def test_real_stdio_initialization_discovery_and_offline_preview(tmp_path):
@@ -27,9 +28,11 @@ def test_real_stdio_initialization_discovery_and_offline_preview(tmp_path):
                 assert initialized.capabilities.tools is not None
                 listing = await session.list_tools()
                 tools = {tool.name: tool for tool in listing.tools}
-                assert {'sheets_write', 'sheets_batch', 'sheets_read'} <= tools.keys()
+                assert {'sheets_write', 'sheets_batch', 'sheets_read', 'sheets_table_plan', 'sheets_table_apply'} <= tools.keys()
                 assert tools['sheets_write'].inputSchema['properties']['confirm']['default'] is False
                 assert tools['sheets_read'].annotations.readOnlyHint is True
+                assert tools['sheets_table_plan'].annotations.readOnlyHint is True
+                assert tools['sheets_table_apply'].inputSchema['properties']['confirm']['default'] is False
                 result = await session.call_tool('sheets_write', {'spreadsheet_id': 'offline-sheet', 'range_name': "'Test tab'!A1", 'values': [['=1+2']]})
                 assert not result.isError
                 preview = json.loads(result.content[0].text)
@@ -41,6 +44,22 @@ def test_real_stdio_initialization_discovery_and_offline_preview(tmp_path):
                 assert json.loads(batch.content[0].text)['status'] == 'preview'
                 invalid = await session.call_tool('sheets_write', {'spreadsheet_id': 'https://invalid.test/sheet', 'range_name': 'A1', 'values': [[1]]})
                 assert invalid.isError
+                table_plan = plan_table(
+                    [['SKU', 'Quantity', 'Notes'], ['00123', 4, 'Keep collaborator text']],
+                    123, 1, {'SKU': '00123'}, {'Quantity': 5})
+                envelope = {'spreadsheet_id': 'offline-sheet', 'range': "'Inventory'!A1:C10", 'plan': table_plan}
+                table = await session.call_tool('sheets_table_apply', {'plan': envelope})
+                assert not table.isError
+                table_preview = json.loads(table.content[0].text)
+                assert table_preview['status'] == 'preview'
+                assert table_preview['plan']['requests'] == table_plan['requests']
+                assert len(table_preview['plan']['requests']) == 1
+                assert table_preview['plan']['requests'][0]['updateCells']['start']['columnIndex'] == 1
+                invalid_confirm = await session.call_tool('sheets_table_apply', {'plan': envelope, 'confirm': 'false'})
+                assert invalid_confirm.isError
+                table_plan['requests'][0]['updateCells']['start']['columnIndex'] = 2
+                tampered = await session.call_tool('sheets_table_apply', {'plan': envelope})
+                assert tampered.isError
                 assert not Path(env['GOOGLE_SHEETS_TOKEN_FILE']).exists()
 
     async def bounded():

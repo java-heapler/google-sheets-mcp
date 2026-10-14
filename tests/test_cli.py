@@ -123,3 +123,72 @@ def test_module_entrypoint(monkeypatch, capsys):
         runpy.run_module('google_sheets_mcp.cli', run_name='__main__')
     assert result.value.code == 0
     assert json.loads(capsys.readouterr().out)['status'] == 'preview'
+
+
+def test_table_plan_and_apply(tmp_path, client, capsys):
+    client.metadata.return_value = {'sheets': [{'properties': {'sheetId': 0, 'title': 'Sheet1', 'index': 0}}]}
+    snapshot = [['Account', 'Stage'], ['A', 'old']]
+    client.read.return_value = {'values': snapshot}
+    match = tmp_path / 'match.json'
+    updates = tmp_path / 'updates.json'
+    match.write_text('{"Account":"A"}')
+    updates.write_text('{"Stage":"=literal"}')
+    assert cli.main(['table', 'plan', 'abc', 'A1:B8', '--sheet-id', '0', '--match-file', str(match), '--updates-file', str(updates)]) == 0
+    envelope = json.loads(capsys.readouterr().out)
+    assert set(envelope) == {'spreadsheet_id', 'range', 'plan'}
+    assert envelope['spreadsheet_id'] == 'abc'
+    assert envelope['range'] == 'A1:B8'
+    client.read.assert_called_once_with('abc', 'A1:B8', render='FORMULA')
+    path = tmp_path / 'plan.json'
+    path.write_text(json.dumps(envelope))
+    client.reset_mock()
+    assert cli.main(['table', 'apply', '--plan-file', str(path)]) == 0
+    client.read.assert_not_called()
+    client.metadata.assert_not_called()
+    client.reset_mock()
+    assert cli.main(['table', 'apply', '--plan-file', str(path), '--confirm']) == 0
+    client.read.assert_called_once_with('abc', 'A1:B8', render='FORMULA')
+    assert client.batch.call_args.kwargs['confirm'] is True
+
+
+@pytest.mark.parametrize('envelope', [None, [], {}, {'spreadsheet_id': 'abc', 'range': 'A1:B8', 'plan': {}, 'extra': True}])
+def test_table_envelope_rejected_offline(envelope, client):
+    with pytest.raises(cli.SheetsError, match='exactly'):
+        cli.table_apply(client, envelope)
+    assert not client.mock_calls
+
+
+def test_table_invalid_range_before_read(client):
+    with pytest.raises(cli.SheetsError):
+        cli.table_plan(client, 'abc', 'A:B', 0, {'Account': 'A'}, {'Stage': 'new'})
+    assert not client.mock_calls
+
+
+def test_table_append_flags(tmp_path, client, capsys):
+    client.metadata.return_value = {'sheets': [{'properties': {'sheetId': 0, 'title': 'Sheet1', 'index': 0}}]}
+    client.read.return_value = {'values': [['Account', 'Stage'], ['A', 'old']]}
+    match = tmp_path / 'match.json'
+    updates = tmp_path / 'updates.json'
+    match.write_text('{"Account":"B"}')
+    updates.write_text('{"Stage":"new"}')
+    assert cli.main(['table', 'plan', 'abc', 'A1:B8', '--sheet-id', '0', '--match-file', str(match), '--updates-file', str(updates), '--allow-append', '--template-row', '2']) == 0
+    plan = json.loads(capsys.readouterr().out)['plan']
+    assert plan['allow_append'] is True
+    assert plan['template_row'] == 2
+
+
+def test_table_apply_without_credentials(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(cli.auth, 'build_service', lambda: pytest.fail('preview must be offline'))
+    plan = cli.plan_table([['Key', 'Value'], ['a', 'old']], 0, 1, {'Key': 'a'}, {'Value': '=literal'})
+    path = tmp_path / 'plan.json'
+    path.write_text(json.dumps({'spreadsheet_id': 'abc', 'range': 'A1:B10', 'plan': plan}))
+    assert cli.main(['table', 'apply', '--plan-file', str(path)]) == 0
+    assert json.loads(capsys.readouterr().out)['status'] == 'preview'
+
+
+def test_table_wrong_tab_before_snapshot(client):
+    client.metadata.return_value = {'sheets': [{'properties': {'sheetId': 7, 'title': 'Other', 'index': 0}}]}
+    with pytest.raises(cli.SheetsError):
+        cli.table_plan(client, 'abc', "'Other'!A1:B10", 0, {'Key': 'a'}, {'Value': 'new'})
+    client.read.assert_not_called()
+    client.batch.assert_not_called()

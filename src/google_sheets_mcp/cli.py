@@ -6,6 +6,7 @@ from pathlib import Path
 
 from . import auth
 from .client import SheetsClient, SheetsError
+from .tables import apply_table, plan_table, validate_table_range, validate_table_target
 
 MAX_JSON_BYTES = 2 * 1024 * 1024
 
@@ -42,6 +43,24 @@ def tab_requests(action, title=None, sheet_id=None):
     return [{'deleteSheet': {'sheetId': sheet_id}}]
 
 
+def table_plan(client, spreadsheet_id, range_name, sheet_id, match, updates, allow_append=False, template_row=None):
+    """Read a bounded snapshot and return a target-bound, locally checked plan."""
+    start_row, _, _ = validate_table_range(range_name)
+    validate_table_target(client, spreadsheet_id, range_name, sheet_id)
+    snapshot = client.read(spreadsheet_id, range_name, render='FORMULA')
+    plan = plan_table(snapshot.get('values', []), sheet_id, start_row, match, updates,
+                      allow_append=allow_append, template_row=template_row)
+    apply_table(client, spreadsheet_id, range_name, plan)
+    return {'spreadsheet_id': spreadsheet_id, 'range': range_name, 'plan': plan}
+
+
+def table_apply(client, envelope, confirm=False):
+    """Apply only to the target persisted in the plan artifact."""
+    if not isinstance(envelope, dict) or set(envelope) != {'spreadsheet_id', 'range', 'plan'}:
+        raise SheetsError('Table plan must contain exactly spreadsheet_id, range, and plan.')
+    return apply_table(client, envelope['spreadsheet_id'], envelope['range'], envelope['plan'], confirm=confirm)
+
+
 def parser():
     root = Parser(prog='google-sheets', description=__doc__)
     commands = root.add_subparsers(dest='command', required=True)
@@ -70,6 +89,18 @@ def parser():
             cmd.add_argument('--requests-file', required=True)
         if name not in ('info', 'read'):
             cmd.add_argument('--confirm', action='store_true')
+    table = commands.add_parser('table').add_subparsers(dest='table_action', required=True)
+    plan = table.add_parser('plan', help='Read a bounded FORMULA snapshot and produce a plan (network read).')
+    plan.add_argument('spreadsheet_id')
+    plan.add_argument('range_name')
+    plan.add_argument('--sheet-id', type=int, required=True)
+    plan.add_argument('--match-file', required=True)
+    plan.add_argument('--updates-file', required=True)
+    plan.add_argument('--allow-append', action='store_true')
+    plan.add_argument('--template-row', type=int)
+    apply = table.add_parser('apply', help='Preview a saved plan offline; confirm rereads before writing.')
+    apply.add_argument('--plan-file', required=True)
+    apply.add_argument('--confirm', action='store_true')
     tabs = commands.add_parser('tabs').add_subparsers(dest='tab_action', required=True)
     for name in ('add', 'rename', 'delete'):
         cmd = tabs.add_parser(name)
@@ -98,6 +129,12 @@ def dispatch(args):
         run()
         return None
     client = SheetsClient()
+    if args.command == 'table':
+        if args.table_action == 'plan':
+            return table_plan(client, args.spreadsheet_id, args.range_name, args.sheet_id,
+                              load_json(args.match_file), load_json(args.updates_file),
+                              allow_append=args.allow_append, template_row=args.template_row)
+        return table_apply(client, load_json(args.plan_file), confirm=args.confirm)
     if args.command == 'info':
         if args.ranges or args.include_grid_data:
             return client.metadata(args.spreadsheet_id, ranges=args.ranges, include_grid_data=args.include_grid_data)
