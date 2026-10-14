@@ -66,7 +66,7 @@ google-sheets table apply \
 | Prevent ambiguous company-only changes | Use a composite match; duplicate matches fail instead of selecting arbitrarily. |
 | Update arbitrary workbook formatting or tabs | Use the existing tabs commands and native batch requests with narrow field masks. |
 
-Business decisions remain outside the tool. A positive conversation does not imply a passed interview, and a tentative lead does not imply a confirmed booking. The separate legacy `interview-sheet` endpoint can still be used for its specialized validation.
+Business decisions remain outside the tool. A positive conversation does not imply a passed interview, and a tentative lead does not imply a confirmed booking. The legacy `interview-sheet` integration is archived. Use this general tool for tracker updates, explicitly supplying any domain-specific date, weekday, and outcome decisions.
 
 ## MCP equivalents
 

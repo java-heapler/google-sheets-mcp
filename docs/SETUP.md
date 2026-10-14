@@ -8,7 +8,7 @@ The first implementation was a separate `interview-sheet` CLI calling a token-pr
 
 The broader requirement was a reusable Google Sheets integration. This repository therefore uses the official Google Sheets API, Google authentication libraries, and MCP SDK. The `google-sheets` command and stdio MCP server share the same implementation. The repository name ends in `-mcp`; the command remains `google-sheets`. No Apps Script web app or shared endpoint token is required by this package.
 
-The existing interview-specific endpoint and repository remain separate. Installing this tool does not replace that deployment, change an existing workbook, migrate records, or edit a central agent-skills repository. Generic table planning adds header-based record updates without hard-coding interview fields. See [table workflows](table-workflows.md).
+After live verification, the user requested retirement of the legacy integration. Its private GitHub repository and Apps Script deployment were archived, and its local CLI, skill registration, and tool-registry entry were removed. Google Sheets MCP is now the active tool for interview-tracker updates. Existing workbook data and the central agent-skills repository were not changed. Generic table planning adds header-based record updates without hard-coding interview fields. See [table workflows](table-workflows.md).
 
 ## What happened during the original setup
 

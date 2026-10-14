@@ -15,7 +15,7 @@ For mutations, construct and inspect a preview with confirmation omitted. Verify
 
 Values default to RAW so formula-looking strings stay literal. Choose USER_ENTERED only for intentionally interpreted values and formulas. Raw batch requests can set formulaValue or delete data regardless of RAW; review every operation. Use precise field masks for formatting and property updates.
 
-On an uncertain network failure, read current state before deciding whether another mutation is appropriate. Never blindly retry create, append, or a destructive batch. Do not claim success from a preview or local test. Keep the separate interview-sheet workflow intact and never use an existing tracker as a write-test fixture.
+On an uncertain network failure, read current state before deciding whether another mutation is appropriate. Never blindly retry create, append, or a destructive batch. Do not claim success from a preview or local test. Use this tool for interview-tracker updates as well as other spreadsheets; the legacy interview-sheet integration is archived. Never use an existing tracker as a write-test fixture.
 
 For header-based record edits, use `table plan` / `sheets_table_plan` with a bounded A1 range starting in column A, its numeric sheetId, and exact match/update mappings. Planning reads metadata and a FORMULA snapshot; it is read-only but needs authentication. Match enough fields to identify one record. Use `table apply` / `sheets_table_apply` to preview the bound plan locally, then confirm the same plan only within authorization. Application rechecks the target and snapshot values and rejects stale plans, but the read/write gap is not an atomic lock. Do not retarget or hand-edit the saved plan.
 
