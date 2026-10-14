@@ -1,0 +1,11 @@
+# Design
+
+The package has three layers: `auth.py` loads explicit credentials and constructs the official Sheets service, `client.py` validates requests and applies the preview/execute boundary, and `cli.py` plus `mcp_server.py` expose the same client operations. The client accepts an injected Google service, so unit tests verify exact requests without a network. Service construction is lazy: an offline preview must never load credentials.
+
+The values API supports reading, replacing, appending and clearing values. The spreadsheet API supports metadata and creation. Native batch requests expose the full structural API; convenience tab tools translate into those same batches. This avoids maintaining a second abstraction for every Google request type. Local validation checks safe basic shapes and JSON values; Google remains authoritative for complete batch schemas and permissions.
+
+Writes return a JSON preview unless confirmation is explicit. No persisted approval token or optimistic concurrency check links preview to execution. Agents must preserve the reviewed payload and read relevant state before applying destructive or potentially stale changes. A response with `status: applied` records an API success, not an independent readback verification.
+
+Desktop OAuth is initiated only by `auth login`. Tokens live outside the repository with owner-only access. A configured service-account key provides an alternative identity; spreadsheet sharing controls access. The service uses a bounded HTTP timeout. Requests do not retry writes automatically, because append and creation can duplicate data after an ambiguous timeout. Redacted exceptions prevent service error bodies and credentials from entering agent output.
+
+Unit tests cover validation, request routing, previews, credential handling, errors, CLI output, and MCP schemas/annotations. The protocol test launches the installed CLI with unusable credential paths, performs MCP initialization and tool discovery, then calls real preview tools over stdio. It confirms the public transport works without granting API access. Mocked tests and protocol previews are not evidence of live Google access. Initial OAuth setup and authorized live checks remain separate operational steps.

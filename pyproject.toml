@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "google-sheets-mcp"
+version = "0.1.0"
+description = "Google Sheets CLI and MCP server with explicit write previews"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "google-api-python-client>=2.150,<3",
+  "google-auth-oauthlib>=1.2,<2",
+  "mcp>=1.12,<2",
+  "requests>=2.32,<3",
+]
+
+[project.scripts]
+google-sheets = "google_sheets_mcp.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.3,<9", "pytest-cov>=6,<8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/google_sheets_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=google_sheets_mcp --cov-branch --cov-report=term-missing --cov-fail-under=100"
+
+[tool.coverage.run]
+source = ["google_sheets_mcp"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+fail_under = 100
