@@ -5,7 +5,7 @@ description: Read Google Sheets and preview or perform explicitly authorized cha
 
 # Google Sheets
 
-Use the tools in `~/.config/tool-registry/registry.json`. Never send or mutate a spreadsheet without the user's OK. Use the registered `google-sheets` CLI or MCP server, backed by the official Sheets API. Read the repository README for batch examples, `docs/SETUP.md` for complete OAuth setup and troubleshooting, and `docs/table-workflows.md` for generic record updates.
+If `~/.config/tool-registry/registry.json` exists, use its registered tool configuration; otherwise use the installed `google-sheets` CLI. Never send or mutate a spreadsheet without the user's OK. Use the `google-sheets` CLI or configured MCP server, backed by the official Sheets API. If the CLI is missing, install with `uv tool install --python 3.13 git+https://github.com/java-heapler/google-sheets-mcp.git`. Read the [source README](https://github.com/java-heapler/google-sheets-mcp/blob/main/README.md) for batch examples, [OAuth setup](https://github.com/java-heapler/google-sheets-mcp/blob/main/docs/SETUP.md) for authentication and troubleshooting, and [table workflows](https://github.com/java-heapler/google-sheets-mcp/blob/main/docs/table-workflows.md) for generic record updates.
 
 Run `google-sheets doctor` to inspect local configuration. If authentication is missing, explain that explicit desktop OAuth setup or an authorized service-account file is needed. Never search broadly for credentials, print secrets, or initiate an unrequested consent flow. CLI/MCP previews work without authentication.
 
