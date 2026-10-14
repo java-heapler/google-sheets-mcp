@@ -4,6 +4,8 @@ A Python CLI and stdio MCP server using Google's official Sheets API and the off
 
 Implementation and automated tests do not establish that a Google account is authenticated or that a live spreadsheet operation has succeeded. See authentication and live verification below.
 
+Repository: [java-heapler/google-sheets-mcp](https://github.com/java-heapler/google-sheets-mcp). The executable is `google-sheets` and the agent skill is `google-sheets`.
+
 ## Install
 
 Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
